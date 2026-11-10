@@ -1,0 +1,240 @@
+name: GitOps CI - Helm + Kubernetes Security
+
+on:
+  workflow_dispatch:
+    
+  push:
+    branches: main
+    paths:
+      - 'envs/dev/**'
+      
+      # - 'charts/**'
+      # - 'envs/**'
+      # - '.github/workflows/01-ci-gitops.yml'
+      # - '.github/workflows/reusable-dev-gitops.yml'
+
+  pull_request:
+    branches: main  
+    paths:
+      - 'envs/qa/**'
+      - 'envs/prod/**'
+      
+      # - 'charts/**'
+      # - 'envs/**'
+      # - '.github/workflows/01-ci-gitops.yml'
+      # - '.github/workflows/reusable-qa-gitops-pr.yml'
+      # - '.github/workflows/reusable-prod-gitops-pr.yml'
+    
+permissions:
+  contents: read
+  pull-requests: read
+  security-events: write
+  id-token: write
+
+env:
+  RUNS_ON: shopverse-gitops-runners             # ubuntu-latest
+
+jobs:
+
+  # ============================================================
+  # 1. Set Variables
+  # ============================================================
+  
+  Set-Variables-Job:
+    name: Set Variables
+    runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.set-variables.outputs.runner }}
+      aws-ecr-role-arn: ${{ steps.set-variables.outputs.aws-ecr-role-arn }}
+    steps:
+      - name: Set Variables
+        id: set-variables
+        env:
+          AWS_ECR_ROLE_ARN: ${{ env.RUNS_ON == 'ubuntu-latest' && vars.AWS_ECR_ROLE_ARN || '' }}
+        run: |
+          echo "runner=$RUNS_ON" >> "$GITHUB_OUTPUT"
+          echo "aws-ecr-role-arn=$AWS_ECR_ROLE_ARN" >> "$GITHUB_OUTPUT"
+          
+
+  # ============================================================
+  # 2. Find changed values files
+  # ============================================================
+
+  Detect-Changes-Job:
+    name: Detect GitOps Changes
+    needs: Set-Variables-Job
+    runs-on: ${{ needs.Set-Variables-Job.outputs.runner }}
+
+    outputs:
+      component: ${{ steps.detect.outputs.component }}
+      environment: ${{ steps.detect.outputs.environment }}
+      chart_path: ${{ steps.detect.outputs.chart_path }}
+      helm_values_file: ${{ steps.detect.outputs.helm_values_file }}
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed values file
+        id: detect
+        shell: bash
+        run: |
+
+          set -euo pipefail
+          changed_values_count=0
+          # ----------------------------------------------------------------
+          # We only care about files like:
+          #
+          # envs/dev/values-backend.yaml
+          # envs/qa/values-payment.yaml
+          # envs/prod/values-order.yaml
+          # ----------------------------------------------------------------
+
+          # if [[ "$file" =~ ^envs/([^/]+)/values-([^/]+)\.yaml$ ]]; then
+
+          # ------------------------------------------------------------
+          # Determine Git diff range based on workflow event
+          # ------------------------------------------------------------
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+          
+            # DEV direct deployment
+            
+            DIFF_HEAD="${{ github.sha }}"
+            DIFF_BASE="${{ github.event.before }}"
+            
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+
+            # QA / PROD PR validation
+            
+            DIFF_HEAD="${{ github.event.pull_request.head.sha }}"
+            DIFF_BASE="${{ github.event.pull_request.base.sha }}"
+            
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+
+            # Manual testing:
+            # compare the current commit with its parent.
+            
+            DIFF_HEAD="${{ github.sha }}"
+            DIFF_BASE="$(git rev-parse "${{ github.sha }}^")"
+      
+          else
+      
+            echo "::error::Unsupported event type: ${{ github.event_name }}"
+            exit 1
+      
+          fi
+
+          # ------------------------------------------------------------
+          # Validate Git diff range
+          # ------------------------------------------------------------
+          if [[ -z "$DIFF_BASE" || -z "$DIFF_HEAD" ]]; then
+            echo "::error::Git diff range is invalid."
+            echo "::error::Event      : ${{ github.event_name }}"
+            echo "::error::DIFF_BASE  : '$DIFF_BASE'"
+            echo "::error::DIFF_HEAD  : '$DIFF_HEAD'"
+            exit 1
+          fi
+      
+          echo "Event     : ${{ github.event_name }}"
+          echo "Diff base : $DIFF_BASE"
+          echo "Diff head : $DIFF_HEAD"
+
+          # ------------------------------------------------------------
+          # Find changed files
+          # ------------------------------------------------------------
+          while read -r file; do
+
+            echo "File changed: $file"
+        
+            if [[ "$file" =~ ^envs/([^/]+)/values-(.+)\.yaml$ ]]; then
+
+                changed_values_count=$((changed_values_count + 1))
+
+                if (( changed_values_count > 1 )); then
+                  echo "::error::Only one environment values file may be changed per Push or PR."
+                  exit 1
+                fi
+        
+                environment="${BASH_REMATCH[1]}"
+                component="${BASH_REMATCH[2]}"
+        
+                chart_path="helm-charts-new/services/$component"
+                helm_values_file="$file"
+        
+                echo "Component   : $component"
+                echo "Environment : $environment"
+                echo "Chart       : $chart_path"
+                echo "Values      : $helm_values_file"
+        
+                echo "component=$component" >> "$GITHUB_OUTPUT"
+                echo "environment=$environment" >> "$GITHUB_OUTPUT"
+                echo "chart_path=$chart_path" >> "$GITHUB_OUTPUT"
+                echo "helm_values_file=$helm_values_file" >> "$GITHUB_OUTPUT"
+        
+            fi
+        
+          done < <(git diff --name-only "$DIFF_BASE" "$DIFF_HEAD")
+
+  
+  # ============================================================
+  # 3. Run reusable validation workflow
+  # ============================================================
+
+  Dev-GitOps-Job:
+    if: ${{ needs.Detect-Changes-Job.outputs.environment == 'dev' }}
+    needs: 
+      - Set-Variables-Job
+      - Detect-Changes-Job
+    uses: ./.github/workflows/reusable-dev-gitops.yml
+    with:
+      runner: ${{ needs.Set-Variables-Job.outputs.runner }}
+      component: ${{ needs.Detect-Changes-Job.outputs.component }}
+      environment: ${{ needs.Detect-Changes-Job.outputs.environment }}
+      chart-path: ${{ needs.Detect-Changes-Job.outputs.chart_path }}
+      values-file: ${{ needs.Detect-Changes-Job.outputs.helm_values_file }}
+
+      deploy-to-dev: true
+      eks-cluster-name: 'shopverse-dev-eks-cluster'
+      dev-namespace: "shopverse-${{ needs.Detect-Changes-Job.outputs.environment }}"
+      argocd-host: '127.0.0.1'
+      argocd-port: '8090'                     # port-forward purpose
+      argocd-app: "shopverse-${{ needs.Detect-Changes-Job.outputs.environment }}-${{ needs.Detect-Changes-Job.outputs.component }}"
+      
+    secrets:
+      ARGOCD_AUTH_TOKEN: ${{ secrets.DEV_ARGOCD_AUTH_TOKEN }}
+
+
+  Qa-GitOps-Job:
+    if: needs.Detect-Changes-Job.outputs.environment == 'qa'
+    needs: 
+      - Set-Variables-Job
+      - Detect-Changes-Job
+    uses: ./.github/workflows/reusable-qa-gitops-pr.yml
+    with:
+      runner: ${{ needs.Set-Variables-Job.outputs.runner }}
+      component: ${{ needs.Detect-Changes-Job.outputs.component }}
+      environment: ${{ needs.Detect-Changes-Job.outputs.environment }}
+      chart-path: ${{ needs.Detect-Changes-Job.outputs.chart_path }}
+      values-file: ${{ needs.Detect-Changes-Job.outputs.helm_values_file }}
+
+
+  Prod-GitOps-Job:
+    if: needs.Detect-Changes-Job.outputs.environment == 'prod'
+    needs: 
+      - Set-Variables-Job
+      - Detect-Changes-Job
+    uses: ./.github/workflows/reusable-prod-gitops-pr.yml
+    with:
+      runner: ${{ needs.Set-Variables-Job.outputs.runner }}
+      component: ${{ needs.Detect-Changes-Job.outputs.component }}
+      environment: ${{ needs.Detect-Changes-Job.outputs.environment }}
+      chart-path: ${{ needs.Detect-Changes-Job.outputs.chart_path }}
+      values-file: ${{ needs.Detect-Changes-Job.outputs.helm_values_file }}
+
+      aws-account-id: '254405569649'
+      aws-region: us-east-1
+      aws-ecr-role-arn: ${{ needs.Set-Variables-Job.outputs.aws-ecr-role-arn }} 
+      aws-prod-ecr-repo: shopverse/${{ needs.Detect-Changes-Job.outputs.component }}

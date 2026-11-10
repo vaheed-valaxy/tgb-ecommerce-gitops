@@ -1,0 +1,74 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: shopverse-dev-applicationset
+  namespace: argocd
+spec:
+  generators:
+    # MATRIX = 1. All list items * 1st git repo folder
+    #          2. All list items * 2nd git repo folder ...
+    - matrix:
+        generators:
+          - list:
+              elements: 
+                - project: shopverse
+                  env: dev
+                  repoURL: https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+
+          # SERVICES (auto-discovered from ONE env only to avoid duplication)        
+          - git:
+              repoURL: https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+              revision: main
+              directories:
+                - path: helm-charts-new/services/*
+  
+  # Application template
+  template:
+    metadata:
+      name: "{{project}}-{{env}}-{{path.basename}}"
+      namespace: argocd
+      
+      labels:
+        env: "{{env}}"
+        project: "{{project}}"
+        component: "{{path.basename}}"
+        app.kubernetes.io/part-of: "{{project}}"
+
+    spec:
+      project: "{{project}}-{{env}}"         # This name should match with the name of "AppProject" created previously
+      
+      source:
+        repoURL: "{{repoURL}}"
+        targetRevision: main
+        # Dynamic env + service
+        path: "helm-charts-new/services/{{path.basename}}"
+        helm:
+          releaseName: "{{project}}-{{env}}-{{path.basename}}"      # must be <= 53 chars
+          valueFiles:
+            - ../../../envs/{{env}}/values-{{path.basename}}.yaml      # values.yaml
+
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{project}}-{{env}}"
+
+      # - DEV deployment is intentionally MANUAL.
+      # - Do NOT add spec.syncPolicy.automated.
+      # - Git changes will make the Application OutOfSync,
+      # - But deployment happens only when GitHub Actions runs: "argocd app sync shopverse-dev-backend"
+        
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+    
+      revisionHistoryLimit: 10

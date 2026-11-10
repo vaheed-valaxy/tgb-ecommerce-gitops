@@ -1,0 +1,113 @@
+# This policy enforces on Deployment main container
+# ==============================================================
+
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+
+metadata:
+  name: verify-main-container-signature
+
+spec:
+
+  # ============================================================
+  # Reject the Deployment if validation fails
+  # ============================================================
+  validationActions:
+    - Deny
+
+  # ============================================================
+  # Fail closed if Kyverno cannot evaluate the policy
+  # ============================================================
+  failurePolicy: Fail
+
+  # ============================================================
+  # Admission webhook configuration
+  # ============================================================
+  webhookConfiguration:
+    timeoutSeconds: 30
+
+  # ============================================================
+  # Admission-time validation only
+  # ============================================================
+  evaluation:
+    background:
+      enabled: false
+
+  # ============================================================
+  # AWS ECR credentials
+  # ============================================================
+  credentials:
+    providers:
+      - amazon
+
+  # ============================================================
+  # Resources to validate
+  # ============================================================
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - apps
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - deployments
+
+  # ============================================================
+  # Only validate images from our ECR
+  # ============================================================
+  matchImageReferences:
+    - glob: "254405569649.dkr.ecr.ap-south-1.amazonaws.com/*"
+
+  # ============================================================
+  # Trusted Cosign signer
+  # ============================================================
+  attestors:
+
+    - name: github-actions
+      cosign:
+        keyless:
+          identities:
+
+            # --------------------------------------------------
+            # Frontend GitHub repository
+            # --------------------------------------------------
+            - issuer: "https://token.actions.githubusercontent.com"
+              subjectRegExp: "^https://github\\.com/vaheed-valaxy/shopverse-frontend/.github/workflows/.*@refs/heads/develop$"
+
+            # --------------------------------------------------
+            # Backend GitHub repository
+            # --------------------------------------------------
+            - issuer: "https://token.actions.githubusercontent.com"
+              subjectRegExp: "^https://github\\.com/vaheed-valaxy/shopverse-backend/.github/workflows/.*@refs/heads/develop$"
+
+            # --------------------------------------------------
+            # Entire GitHub Organization (vaheed-valaxy)
+            # --------------------------------------------------
+            # - issuer: "https://token.actions.githubusercontent.com"
+            #   subjectRegExp: "^https://github\\.com/vaheed-valaxy/.+/.github/workflows/.*@refs/heads/develop$"  (Trust entire github org 'vaheed-valaxy')
+
+          # ----------------------------------------------------
+          # Sigstore Rekor transparency log
+          # ----------------------------------------------------
+          ctlog:
+            url: "https://rekor.sigstore.dev"
+
+  # ============================================================
+  # Validation
+  # ============================================================
+  validations:
+
+    - expression: >-
+        object.spec.template.spec.containers.size() > 0 &&
+        verifyImageSignatures(
+          object.spec.template.spec.containers[0].image,
+          [attestors.github-actions]
+        ) > 0
+
+      message: >-
+        The main container image must have a valid Cosign keyless
+        signature created by an approved GitHub Actions workflow
+        on the develop branch.

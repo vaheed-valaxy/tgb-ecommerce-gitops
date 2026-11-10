@@ -1,0 +1,147 @@
+# ===================================================
+#                    BACKEND
+# ===================================================
+
+# namespace: shopverse-prod
+
+# ---------------------------------------------------
+# Container
+# ---------------------------------------------------
+image:
+  ecr_registry: 254405569649.dkr.ecr.us-east-1.amazonaws.com
+  ecr_repository: shopverse/backend
+  tag: v1
+  digest: sha256:a58504baa7cde9bc4e65bc93ee30b9c81fcd1ee5a622fd9e3b3f6a64fbb6c657
+containerName: backend
+imagePullPolicy: Always
+terminationGracePeriodSeconds: 30
+# ---------------------------------------------------
+# Labels
+# ---------------------------------------------------
+labels:
+  app.kubernetes.io/name: shopverse
+  app.kubernetes.io/component: backend
+  app.kubernetes.io/env: prod
+  app.kubernetes.io/version: 1.0.0
+# ---------------------------------------------------
+# Deployment
+# ---------------------------------------------------
+deployment:
+  name: backend-deploy
+  replicas: 1
+# ---------------------------------------------------
+# Service
+# ---------------------------------------------------
+service:
+  name: backend-svc
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+# ---------------------------------------------------
+# Pod Annotations
+# ---------------------------------------------------
+annotations:
+  enabled: true
+  enable_checksum: true
+  checksum_file: configmap.yaml
+  values:
+    reloader.stakater.com/auto: "true"
+# ---------------------------------------------------
+# Security Context
+# ---------------------------------------------------
+podSecurityContext:
+  enabled: true
+  values:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+containerSecurityContext:
+  enabled: true
+  values:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+# ---------------------------------------------------
+# Configmaps & Secrets
+# ---------------------------------------------------
+configmap:
+  enabled: true
+  name: backend-configmap
+  values:
+    DB_HOST: "shopverse-prod-mysql.ca9aykaigakf.us-east-1.rds.amazonaws.com"
+    DB_PORT: "3306"
+    DB_NAME: "shopverse"
+    FRONTEND_ORIGIN: "*"
+secret:
+  name: shopverse-prod-mysql-jwt-credentials
+  create: false # Creates through ESO    
+envFrom:
+  enabled: true
+  values:
+    - configMapRef:
+        name: backend-configmap
+    - secretRef:
+        name: shopverse-prod-mysql-jwt-credentials # Creates through ESO   
+# ---------------------------------------------------
+# Limits & Requests
+# ---------------------------------------------------
+resources:
+  enabled: true
+  values:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+# ---------------------------------------------------
+# Healthcheck Probes
+# ---------------------------------------------------
+startupProbe:
+  enabled: true
+  values:
+    httpGet:
+      path: /health
+      port: 8080
+    failureThreshold: 10
+    periodSeconds: 10
+readinessProbe:
+  enabled: true
+  values:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 15
+    periodSeconds: 10
+livenessProbe:
+  enabled: true
+  values:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 20
+    periodSeconds: 30
+# ---------------------------------------------------
+# Autoscaling
+# ---------------------------------------------------
+autoscaling:
+  enabled: false
+  values:
+    name: backend-hpa
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+# ---------------------------------------------------
+# Service Account
+# ---------------------------------------------------
+serviceAccount:
+  create: false
+  values:
+    name: backend-sa
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/backend-role

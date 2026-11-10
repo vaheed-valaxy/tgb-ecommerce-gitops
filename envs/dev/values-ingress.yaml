@@ -1,0 +1,91 @@
+namespace: shopverse-dev
+# ──────────────────────────────────────--------------------------
+# BASE Ingress
+# ──────────────────────────────────────--------------------------
+baseIngress:
+  enabled: false
+  name: shopverse-dev-base-ingress
+  ingressClassName: alb
+
+  annotations: 
+    alb.ingress.kubernetes.io/scheme: internet-facing           # ALB exposure
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'    # HTTP Listener
+    alb.ingress.kubernetes.io/ip-address-type: ipv4
+    alb.ingress.kubernetes.io/group.order: "0"                  # Highest Priority
+    
+    # Performance / Timeouts
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60      
+    
+    # Grouping (very important for multiple ingresses)
+    alb.ingress.kubernetes.io/group.name: shopverse-dev      # This should be same in all the ingress.yaml files to collaboratively create single ALB
+ 
+
+    # HTTP + HTTPS listeners
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+
+    # ACM Certificate
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:REGION:ACCOUNT:certificate/XXXX
+
+    # Force HTTPS
+    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+
+    # WAF (optional but real-world)
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:REGION:ACCOUNT:regional/webacl/XXXX
+    
+
+# ──────────────────────────────────────--------------------------
+# BACKEND Ingress
+# ──────────────────────────────────────--------------------------
+backendIngress:
+  enabled: false
+  name: shopverse-dev-backend-ingress
+  ingressClassName: alb
+  
+  path: /api
+  pathType: Prefix
+  serviceName: backend-svc
+  servicePort: 8080
+
+  annotations:
+    # Target pods directly
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Backend-specific health check
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+  
+    # Grouping (very important for multiple ingresses)
+    alb.ingress.kubernetes.io/group.name: shopverse-dev        # This should be same in all the ingress.yaml files to collaboratively create single ALB
+
+    # 🔥 Higher priority
+    alb.ingress.kubernetes.io/group.order: "1"   
+    
+
+# ──────────────────────────────────────--------------------------
+# FRONTEND Ingress
+# ──────────────────────────────────────--------------------------
+frontendIngress:
+  enabled: false
+  name: shopverse-dev-frontend-ingress
+  ingressClassName: alb
+  
+  path: /
+  pathType: Prefix
+  serviceName: frontend-svc
+  servicePort: 8080
+  
+  annotations:
+    # Target pods directly
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    
+    # Backend-specific health check
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    
+    # Grouping (very important for multiple ingresses)
+    alb.ingress.kubernetes.io/group.name: shopverse-dev        # This should be same in all the ingress.yaml files to collaboratively create single ALB
+
+    # 🔥 Lower priority
+    alb.ingress.kubernetes.io/group.order: "2"   

@@ -1,0 +1,759 @@
+name: Reusable - DEV GitOps Helm + Kubernetes Security
+
+# ${GITHIB_SHA} ${{github.sha}} -- refers to latest commit id
+# git rev-parse HEAD -- gives you latest commit id present on local repo
+# git fetch origin main; $(git rev-parse origin/main) -- gives you latest commit present on remote git repo in main branch
+
+on:
+  workflow_call:
+
+    inputs:
+
+      component:
+        description: "Component name"
+        required: true
+        type: string
+
+      runner:
+        description: "Runner label"
+        required: false
+        type: string
+        default: ubuntu-latest
+
+      environment:
+        description: "Environment name"
+        required: true
+        type: string
+
+      chart-path:
+        description: "Path to Helm chart"
+        required: true
+        type: string
+
+      values-file:
+        description: "Path to Helm values file"
+        required: true
+        type: string
+
+      deploy-to-dev:
+        description: "Deploy to DEV environment"
+        required: false
+        type: boolean
+        default: false
+
+      eks-cluster-name:
+        description: "EKS cluster name"
+        required: false
+        type: string
+        default: ""
+
+      argocd-host:
+        description: "Argo CD server host dns or ip"
+        required: false
+        type: string
+        default: "127.0.0.1"
+
+      argocd-port:
+        description: "Argo CD port"
+        required: false
+        type: string
+        default: "8090"
+
+      argocd-app:
+        description: "Argo CD application name"
+        required: false
+        type: string
+        default: ""
+
+      dev-namespace:
+        description: "DEV Kubernetes namespace"
+        required: false
+        type: string
+        default: shopverse-dev
+
+    secrets:
+
+      ARGOCD_AUTH_TOKEN:
+        description: "Argo CD project-role authentication token"
+        required: false
+
+env:
+  AWS_REGION: us-east-1
+
+  ARGOCD_HOST: ${{ inputs.argocd-host }}
+  ARGOCD_PORT: ${{ inputs.argocd-port }}
+  ARGOCD_APP: ${{ inputs.argocd-app }}
+  ARGOCD_NAMESPACE: argocd
+
+  TRIVY_VERSION: v0.72.0
+  HELM_VERSION: v3.19.0
+  KUBECONFORM_VERSION: v0.7.0
+
+  KYVERNO_CLI_VERSION: "v1.19.0"
+  YQ_VERSION: "v4.47.1"
+
+concurrency:
+  group: gitops-${{ inputs.component }}-${{ inputs.environment }}-validation
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ==========================================================
+  # GITOPS VALIDATION
+  # ==========================================================
+
+  GitOps-Validation-Job:
+
+    name: "${{ inputs.component }} - ${{ inputs.environment }} - Helm + Kubernetes Security"
+    runs-on: ${{ inputs.runner }}
+
+    permissions:
+      contents: read
+      security-events: write
+
+    outputs:
+      validated-commit: ${{ steps.validation-summary.outputs.validated-commit }}
+
+    steps:
+
+      # ======================================================
+      # 1. Checkout GitOps Repository
+      # ======================================================
+
+      - name: Checkout GitOps Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Print Latest Commit ID
+        run: |
+          echo "Latest Commit ID: ${GITHUB_SHA}"
+          
+        
+      # ======================================================
+      # 2. Setup Helm
+      # ======================================================
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Build Helm Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Chart path: ${{ inputs.chart-path }}"
+          # rm -rf "${{ inputs.environment }}/${{ inputs.component }}/charts"
+
+          helm dependency build "${{ inputs.chart-path }}"
+
+
+      # ======================================================
+      # 3. Show Commit Being Validated
+      # ======================================================
+
+      - name: Commit being tested
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "------------------------------------------"
+          echo "Commit being tested"
+          echo "------------------------------------------"
+
+          git log -1 --oneline
+
+          echo "GITHUB_SHA: ${GITHUB_SHA}"       # Commit ID
+          echo "GITHUB_REF: ${GITHUB_REF}"       # Branch Name
+
+
+      # ======================================================
+      # 4. Helm Lint
+      # ======================================================
+
+      - name: Helm Lint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Component   : ${{ inputs.component }}"
+          echo "Chart       : ${{ inputs.chart-path }}"
+          echo "Values file : ${{ inputs.values-file }}"
+
+          helm lint "${{ inputs.chart-path }}" -f "${{ inputs.values-file }}"
+            
+            
+      # ======================================================
+      # 5. Render Helm Templates
+      # ======================================================
+
+      - name: Render Helm Manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "rendered/${{ inputs.component }}"
+
+          helm template \
+            "${{ inputs.component }}" \
+            "${{ inputs.chart-path }}" \
+            -f "${{ inputs.values-file }}" \
+            > "rendered/${{ inputs.component }}/${{ inputs.component }}.yaml"
+
+          echo "*** Helm rendering completed successfully... ***"
+
+
+      # ======================================================
+      # 6. Show Rendered Kubernetes Manifests
+      # ======================================================
+
+      - name: Show Rendered Kubernetes Manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=================================================="
+          echo "Rendered Kubernetes Manifests"
+          echo "Component: ${{ inputs.component }}"
+          echo "=================================================="
+
+          cat "rendered/${{ inputs.component }}/${{ inputs.component }}.yaml"
+
+
+      # ======================================================
+      # 7. Install Kubeconform
+      # ======================================================
+
+      - name: Install Kubeconform
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          KUBECONFORM_URL="https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+
+          echo "Downloading Kubeconform ${KUBECONFORM_VERSION}..."
+
+          curl -fsSL "$KUBECONFORM_URL" -o /tmp/kubeconform.tar.gz
+             
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp
+             
+          sudo install /tmp/kubeconform /usr/local/bin/kubeconform
+            
+          kubeconform -v
+          
+          
+      # ======================================================
+      # 8. Kubeconform Validation
+      # ======================================================
+
+      - name: Kubeconform - Kubernetes Schema Validation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          kubeconform \
+            -strict \
+            -summary \
+            -output tap \
+            -ignore-missing-schemas \
+            "rendered/${{ inputs.component }}/${{ inputs.component }}.yaml"
+
+            # -kubernetes-version "${K8S_VERSION}" 
+            # -skip TargetGroupBinding
+            # -output text pretty
+            
+
+      # ======================================================
+      # 9. Upload rendered manifests for deployment validation
+      # ======================================================
+
+      - name: Upload Rendered Manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-${{ inputs.component }}-${{ inputs.environment }}-${{ github.sha }}
+          path: rendered/${{ inputs.component }}/${{ inputs.component }}.yaml
+          # path: rendered/${{ inputs.component }}/
+          if-no-files-found: error
+          retention-days: 1
+
+        
+      # ======================================================
+      # 10. Setup Trivy
+      # ======================================================
+
+      - name: Setup Trivy
+        # uses: aquasecurity/setup-trivy@v0.2.6
+        uses: vaheed-valaxy/central-github-actions/.github/actions/setup-trivy@main
+        with:
+          trivy-version: ${{ env.TRIVY_VERSION }}
+
+
+      # ======================================================
+      # 11. Trivy Kubernetes Manifest Security Scan
+      # ======================================================
+
+      - name: Trivy - Kubernetes Manifest Security Scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          trivy config \
+            --severity MEDIUM,HIGH,CRITICAL \
+            --exit-code 0 \
+            --format table \
+            "rendered/${{ inputs.component }}"
+
+
+      # ======================================================
+      # 12. Generate Trivy SARIF
+      # ======================================================
+
+      - name: Generate Trivy SARIF
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          trivy config \
+            --severity HIGH,CRITICAL \
+            --format sarif \
+            --output "trivy-k8s-${{ inputs.component }}-${{ inputs.environment }}.sarif" \
+            "rendered/${{ inputs.component }}"
+
+
+      # ======================================================
+      # 13. Check SARIF
+      # ======================================================
+
+      - name: Check Trivy SARIF
+        id: check-sarif
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SARIF_FILE="trivy-k8s-${{ inputs.component }}-${{ inputs.environment }}.sarif"
+
+          if [[ -s "$SARIF_FILE" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "SARIF file exists."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "SARIF file does not exist or is empty."
+          fi
+
+
+      # ======================================================
+      # 14. Upload SARIF
+      # ======================================================
+
+      - name: Upload Trivy SARIF
+        if: always() && steps.check-sarif.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-k8s-${{ inputs.component }}-${{ inputs.environment }}.sarif
+          category: trivy-k8s-${{ inputs.component }}-${{ inputs.environment }}
+          wait-for-processing: true
+
+
+      # ======================================================
+      # 15. Validation Summary
+      # ======================================================
+
+      - name: Validation summary
+        id: validation-summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "--------------------------------------------------"
+          echo "${{ inputs.environment }} GitOps validation PASSED"
+          echo "--------------------------------------------------"
+
+          echo "Component  : ${{ inputs.component }}"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Commit     : ${GITHUB_SHA}"
+          echo "Branch     : ${GITHUB_REF_NAME}"
+
+          echo "LATEST COMMIT   : ${GITHUB_SHA}" 
+          echo "VALIDTAED COMMIT: ${GITHUB_SHA}"
+
+          echo "validated-commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+
+  # ==========================================================
+  # DEPLOY TO DEV
+  # ==========================================================
+
+  Deploy-Dev-Job:
+    name: Deploy DEV
+    if: inputs.deploy-to-dev
+    needs: GitOps-Validation-Job
+
+    runs-on: ${{ inputs.runner }}
+    
+      # - self-hosted
+      # - Linux
+      # - X64
+      # - shopverse-dev
+
+    # environment:
+    #   name: dev
+
+    permissions:
+      contents: read
+
+    concurrency:
+      group: shopverse-dev-deployment
+      cancel-in-progress: false
+
+    steps:
+
+      # ======================================================
+      # 1. Checkout Gitops repo
+      # ======================================================
+
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          # ref: ${{ github.sha }}   # EXACT validated commit
+          fetch-depth: 0
+
+      - name: Ensure validated commit is still Latest commit
+        shell: bash
+        env:
+          VALIDATED_COMMIT: ${{ needs.GitOps-Validation-Job.outputs.validated-commit }}
+          LATEST_COMMIT: ${{ github.sha }}             # ${GITHUB_SHA}
+        run: |
+          echo "Checking Validated Commit is still Latest after checkout..."
+          
+          echo "VALIDATED COMMIT: ${VALIDATED_COMMIT}"
+          echo "LATEST COMMIT   : ${LATEST_COMMIT}"
+      
+          if [[ "${VALIDATED_COMMIT}" != "${LATEST_COMMIT}" ]]; then
+            echo "::error::A newer GitOps commit exists."
+            echo "::error::Refusing to deploy stale validated commit."
+            exit 1
+          fi
+          
+          echo "Commit is still Latest...Proceeding further...!"
+          
+
+      # ======================================================
+      # 2. Download rendered manifests from validation job
+      # ======================================================
+
+      - name: Download Rendered Manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: rendered-${{ inputs.component }}-${{ inputs.environment }}-${{ github.sha }}
+          path: rendered/${{ inputs.component }}
+
+
+      # ======================================================
+      # 3. Verify runner tools
+      # ======================================================
+
+      - name: Verify runner tools
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws --version
+          kubectl version --client
+          argocd version --client
+          curl --version
+          
+
+      # ======================================================
+      # 4. Verify validated commit is still current
+      # ======================================================
+
+      - name: Verify validated commit is still current
+        shell: bash
+        env:
+          VALIDATED_COMMIT: ${{ needs.GitOps-Validation-Job.outputs.validated-commit }}
+        run: |
+          set -euo pipefail
+
+          echo "Fetching the Latest Commit from remote Repo..."
+
+          git fetch origin main
+
+          LATEST_COMMIT="$(git rev-parse origin/main)"
+
+          echo "VALIDATED COMMIT : ${VALIDATED_COMMIT}"
+          echo "LATEST COMMIT    : ${LATEST_COMMIT}"
+
+          if [[ "${VALIDATED_COMMIT}" != "${LATEST_COMMIT}" ]]; then
+            echo "::error::A newer GitOps commit exists."
+            echo "::error::Refusing to deploy stale validated commit."
+            exit 1
+          fi
+
+          echo "Fetched Current Commit is still Latest Commit..."
+          echo "No more Commit Checks here after...Proceeding to Deploy to DEV...!"
+
+
+      # ======================================================
+      # 5. Server-side Kubernetes dry-run
+      # ======================================================
+
+      # - name: Kubernetes Server-Side Dry Run
+      #   shell: bash
+      #   env:
+      #     DEV_NAMESPACE: ${{ inputs.dev-namespace }}
+      #   run: |
+      #     set -euo pipefail
+
+      #     MANIFEST="rendered/${{ inputs.component }}/${{ inputs.component }}.yaml"
+
+      #     echo "=========================================="
+      #     echo "Kubernetes Server-Side Dry Run"
+      #     echo "Component : ${{ inputs.component }}"
+      #     echo "Namespace : ${DEV_NAMESPACE}"
+      #     echo "Manifest  : ${MANIFEST}"
+      #     echo "=========================================="
+
+      #     if [[ ! -s "${MANIFEST}" ]]; then
+      #       echo "::error::Rendered manifest is missing or empty."
+      #       exit 1
+      #     fi
+
+      #     echo "Running server-side validation..."
+
+      #     kubectl apply \
+      #       --dry-run=server \
+      #       --validate=strict \
+      #       --namespace "${DEV_NAMESPACE}" \
+      #       -f "${MANIFEST}"
+
+              # --dry-run=client
+      #     echo "Server-side dry-run passed."
+
+
+      # ======================================================
+      # 6. Start temporary Argo CD port-forward
+      # ======================================================
+
+      - name: Start Argo CD port-forward
+        shell: bash
+        env:
+          ARGOCD_NAMESPACE: ${{ env.ARGOCD_NAMESPACE }}
+          ARGOCD_HOST: ${{ env.ARGOCD_HOST }}
+          ARGOCD_PORT: ${{ env.ARGOCD_PORT }}
+        run: |
+          set -euo pipefail
+
+          rm -f /tmp/argocd-port-forward.pid
+          rm -f /tmp/argocd-port-forward.log
+
+          kubectl -n "${ARGOCD_NAMESPACE}" port-forward svc/argocd-server "${ARGOCD_PORT}:443" --address 127.0.0.1 > /tmp/argocd-port-forward.log 2>&1 &
+            
+          echo $! > /tmp/argocd-port-forward.pid
+
+          echo "Waiting for Argo CD..."
+
+          for i in {1..30}; do
+            if curl -kfsS "https://${ARGOCD_HOST}:${ARGOCD_PORT}/healthz" >/dev/null 2>&1; then
+              echo "*** Argo CD is reachable...! ***"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "::error::Argo CD port-forward did not become ready."
+
+          cat /tmp/argocd-port-forward.log
+
+          exit 1
+
+          
+      # ======================================================
+      # 7. Check Argo CD Authentication & Application
+      # ======================================================
+
+      - name: Check Argo CD Authentication & Application
+        shell: bash
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_HOST: ${{ inputs.argocd-host }}
+          ARGOCD_PORT: ${{ inputs.argocd-port }}
+          ARGOCD_APP: ${{ inputs.argocd-app }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${ARGOCD_AUTH_TOKEN:-}" ]]; then
+            echo "::error::ARGOCD_AUTH_TOKEN is not configured."
+            exit 1
+          fi
+
+          if [[ -z "${ARGOCD_APP:-}" ]]; then
+            echo "::error::ARGOCD_APP is not configured."
+            exit 1
+          fi
+
+          ARGOCD_SERVER="${ARGOCD_HOST}:${ARGOCD_PORT}"
+
+          echo "Argo CD server: ${ARGOCD_SERVER}"
+          echo "Argo CD application: ${ARGOCD_APP}"
+
+          echo "Checking Argo CD authentication..."
+          argocd account get-user-info --server "${ARGOCD_SERVER}" --insecure
+                       
+          echo "Checking Argo CD application..."
+          argocd app get "${ARGOCD_APP}" --server "${ARGOCD_SERVER}" --insecure
+          
+            
+      # ======================================================
+      # 8. Sync EXACT validated Git commit
+      # ======================================================
+
+      - name: Sync DEV application
+        shell: bash
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_HOST: ${{ inputs.argocd-host }}
+          ARGOCD_PORT: ${{ inputs.argocd-port }}
+          ARGOCD_APP: ${{ inputs.argocd-app }}
+          VALIDATED_COMMIT: ${{ needs.GitOps-Validation-Job.outputs.validated-commit }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${ARGOCD_AUTH_TOKEN:-}" ]]; then
+            echo "::error::ARGOCD_AUTH_TOKEN is not configured."
+            exit 1
+          fi
+
+          if [[ -z "${ARGOCD_APP:-}" ]]; then
+            echo "::error::ARGOCD_APP is not configured."
+            exit 1
+          fi
+
+          if [[ -z "${VALIDATED_COMMIT:-}" ]]; then
+            echo "::error::VALIDATED_COMMIT is not configured."
+            exit 1
+          fi
+
+          ARGOCD_SERVER="${ARGOCD_HOST}:${ARGOCD_PORT}"
+
+          echo "Argo CD server: ${ARGOCD_SERVER}"
+          echo "Argo CD application: ${ARGOCD_APP}"
+          echo "Deploying validated GitOps commit:"
+          echo "${VALIDATED_COMMIT}"
+
+          argocd app sync "${ARGOCD_APP}" \
+            --revision "${VALIDATED_COMMIT}" \
+            --server "${ARGOCD_SERVER}" \
+            --insecure    
+      
+  
+      # ======================================================
+      # 9. Wait for DEV application
+      # ======================================================
+
+      - name: Wait for DEV application
+        shell: bash
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_HOST: ${{ inputs.argocd-host }}
+          ARGOCD_PORT: ${{ inputs.argocd-port }}
+          ARGOCD_APP: ${{ inputs.argocd-app }}
+        run: |
+          set -euo pipefail
+
+          ARGOCD_SERVER="${ARGOCD_HOST}:${ARGOCD_PORT}"
+
+          echo "Waiting for application sync and health..."
+
+          argocd app wait "${ARGOCD_APP}" \
+            --server "${ARGOCD_SERVER}" \
+            --sync \
+            --health \
+            --timeout 600 \
+            --insecure
+
+
+      # ======================================================
+      # 10. Show final Argo CD status
+      # ======================================================
+
+      - name: Show final Argo CD status
+        if: always()
+        shell: bash
+        env:
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_HOST: ${{ inputs.argocd-host }}
+          ARGOCD_PORT: ${{ inputs.argocd-port }}
+          ARGOCD_APP: ${{ inputs.argocd-app }}
+        run: |
+          set +e
+
+          if [[ -z "${ARGOCD_AUTH_TOKEN:-}" ]]; then
+            echo "::warning::ARGOCD_AUTH_TOKEN is not configured."
+            exit 0
+          fi
+
+          ARGOCD_SERVER="${ARGOCD_HOST}:${ARGOCD_PORT}"
+
+          argocd app get "${ARGOCD_APP}" --server "${ARGOCD_SERVER}" --insecure
+
+          exit 0
+
+
+      # ======================================================
+      # 11. Cleanup temporary port-forward
+      # ======================================================
+      - name: Cleanup Argo CD port-forward
+        if: always()
+        shell: bash
+        run: |
+          set +e
+      
+          if [[ -f /tmp/argocd-port-forward.pid ]]; then
+      
+            PID="$(cat /tmp/argocd-port-forward.pid)"   
+            echo "Stopping Argo CD port-forward PID: ${PID}"
+            kill "${PID}" 2>/dev/null || true
+            wait "${PID}" 2>/dev/null || true
+      
+          fi
+      
+          rm -f \
+            /tmp/argocd-port-forward.pid \
+            /tmp/argocd-port-forward.log
+      
+          echo "Argo CD port-forward cleanup completed."
+          
+      # ****************************************************** #
+      # - name: Cleanup Argo CD port-forward
+      #   if: always()
+      #   shell: bash
+      #   run: |
+      #     set +e
+      
+      #     if [[ -f /tmp/argocd-port-forward.pid ]]; then
+      
+      #       PID="$(cat /tmp/argocd-port-forward.pid)"
+      #       kill "${PID}" 2>/dev/null || true
+      
+      #       for i in {1..10}; do
+      #         if ! kill -0 "${PID}" 2>/dev/null; then
+      #           break
+      #         fi
+      
+      #         sleep 1
+      #       done
+      
+      #     fi
+      
+      #     rm -f \
+      #       /tmp/argocd-port-forward.pid \
+      #       /tmp/argocd-port-forward.log
+
+                  
