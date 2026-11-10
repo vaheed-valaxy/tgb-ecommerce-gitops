@@ -1,0 +1,180 @@
+# ===================================================
+#                    ORDER
+# ===================================================
+
+# namespace: ecommerce-dev
+
+# ---------------------------------------------------
+# Container
+# ---------------------------------------------------
+image:
+  ecr_registry: 254405569649.dkr.ecr.us-east-1.amazonaws.com
+  ecr_repository: ecommerce-dev/order
+  tag: v1
+  digest: latest                 # sha256:a5c6e8120a55cc2f541421a56847c9bfd1bcc485b711234f514c776f6ac8ff34
+containerName: order
+imagePullPolicy: Always
+terminationGracePeriodSeconds: 30
+# ---------------------------------------------------
+# Labels
+# ---------------------------------------------------
+labels:
+  app.kubernetes.io/name: ecommerce
+  app.kubernetes.io/component: order
+  app.kubernetes.io/env: dev
+  app.kubernetes.io/version: 1.0.0
+# ---------------------------------------------------
+# Deployment
+# ---------------------------------------------------
+deployment:
+  name: order-deploy
+  replicas: 1
+# ---------------------------------------------------
+# Service
+# ---------------------------------------------------
+service:
+  name: order-svc
+  type: ClusterIP
+  port: 8004
+  targetPort: 8004
+# ---------------------------------------------------
+# Pod Annotations
+# ---------------------------------------------------
+annotations:
+  enabled: true
+  enable_checksum: true
+  checksum_file: configmap.yaml
+  values:
+    reloader.stakater.com/auto: "true"
+# ---------------------------------------------------
+# Security Context
+# ---------------------------------------------------
+podSecurityContext:
+  enabled: true
+  values:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+containerSecurityContext:
+  enabled: true
+  values:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+# ---------------------------------------------------
+# Configmaps & Secrets
+# ---------------------------------------------------
+configmap:
+  enabled: true
+  name: order-configmap
+  values:
+    ENVIRONMENT: "dev"
+    AWS_REGION: "us-east-1"
+    DB_HOST: ""
+    DB_PORT: ""
+    DB_NAME: ""
+    # DB_USER: ""
+    # DB_PASSWORD: ""
+    PRODUCT_SERVICE_URL: "http://product-svc:8001"
+    CART_SERVICE_URL: "http://cart-svc:8002"
+    USER_SERVICE_URL: "http://user-svc:8003"
+secret:
+  name: ecommerce-dev-postgre-jwt-credentials
+  create: false # Creates through ESO    
+envFrom:
+  enabled: true
+  values:
+    - configMapRef:
+        name: order-configmap
+    - secretRef:
+        name: ecommerce-dev-postgre-jwt-credentials # Creates through ESO   
+# ---------------------------------------------------
+# Limits & Requests
+# ---------------------------------------------------
+resources:
+  enabled: true
+  values:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+# ---------------------------------------------------
+# Healthcheck Probes
+# ---------------------------------------------------
+startupProbe:
+  enabled: true
+  values:
+    httpGet:
+      path: /health
+      port: 8004
+    failureThreshold: 10
+    periodSeconds: 10
+readinessProbe:
+  enabled: true
+  values:
+    httpGet:
+      path: /health
+      port: 8004
+    initialDelaySeconds: 15
+    periodSeconds: 10
+livenessProbe:
+  enabled: true
+  values:
+    httpGet:
+      path: /health
+      port: 8004
+    initialDelaySeconds: 20
+    periodSeconds: 30
+# ---------------------------------------------------
+# Autoscaling
+# ---------------------------------------------------
+autoscaling:
+  enabled: false
+  values:
+    name: order-hpa
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+# ---------------------------------------------------
+# Service Account
+# ---------------------------------------------------
+serviceAccount:
+  create: false
+  values:
+    name: order-sa
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/order-role
+# ---------------------------------------------------
+# Target Group Binding
+# ---------------------------------------------------
+targetGroupBinding:
+  enabled: true
+  name: ecommerce-dev-order-tgb
+  values:
+    targetType: "ip"
+    targetGroupName: ecommerce-dev-order-tg
+    # targetGroupARN: "REPLACE_WITH_TERRAFORM_OUTPUT"
+# ---------------------------------------------------
+# Node Selectors
+# ---------------------------------------------------
+nodeSelector:
+  enabled: true
+  values:
+    workload: application
+# ---------------------------------------------------
+# Tolerations
+# ---------------------------------------------------
+tolerations:
+  enabled: true
+  values:
+    - key: dedicated
+      operator: Equal
+      value: application
+      effect: NoSchedule
