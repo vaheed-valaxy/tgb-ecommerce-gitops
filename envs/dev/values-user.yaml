@@ -86,7 +86,7 @@ envFrom:
   enabled: true
   values:
     - configMapRef:
-        name: cart-configmap
+        name: user-configmap
     - secretRef:
         name: ecommerce-dev-postgre-jwt-credentials # Creates through ESO   
 # ---------------------------------------------------
