@@ -6,7 +6,7 @@ on:
   push:
     branches: main
     paths:
-      - 'envs/dev/**'
+      # - 'envs/dev/**'
       
       # - 'charts/**'
       # - 'envs/**'
@@ -16,8 +16,8 @@ on:
   pull_request:
     branches: main  
     paths:
-      - 'envs/qa/**'
-      - 'envs/prod/**'
+      # - 'envs/qa/**'
+      # - 'envs/prod/**'
       
       # - 'charts/**'
       # - 'envs/**'
