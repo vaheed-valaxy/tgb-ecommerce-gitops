@@ -1,39 +1,39 @@
 # ===================================================
-#                    BACKEND
+#                    PRODUCT
 # ===================================================
 
-# namespace: shopverse-dev
+# namespace: ecommerce-dev
 
 # ---------------------------------------------------
 # Container
 # ---------------------------------------------------
 image:
   ecr_registry: 254405569649.dkr.ecr.us-east-1.amazonaws.com
-  ecr_repository: shopverse-dev/backend
+  ecr_repository: ecommerce-dev/product
   tag: v1
   digest: sha256:a5c6e8120a55cc2f541421a56847c9bfd1bcc485b711234f514c776f6ac8ff34
-containerName: backend
+containerName: product
 imagePullPolicy: Always
 terminationGracePeriodSeconds: 30
 # ---------------------------------------------------
 # Labels
 # ---------------------------------------------------
 labels:
-  app.kubernetes.io/name: shopverse
-  app.kubernetes.io/component: backend
+  app.kubernetes.io/name: ecommerce
+  app.kubernetes.io/component: product
   app.kubernetes.io/env: dev
   app.kubernetes.io/version: 1.0.0
 # ---------------------------------------------------
 # Deployment
 # ---------------------------------------------------
 deployment:
-  name: backend-deploy
+  name: product-deploy
   replicas: 1
 # ---------------------------------------------------
 # Service
 # ---------------------------------------------------
 service:
-  name: backend-svc
+  name: product-svc
   type: ClusterIP
   port: 8080
   targetPort: 8080
@@ -83,9 +83,9 @@ envFrom:
   enabled: true
   values:
     - configMapRef:
-        name: backend-configmap
+        name: product-configmap
     - secretRef:
-        name: shopverse-dev-mysql-jwt-credentials # Creates through ESO   
+        name: ecommerce-dev-postgre-jwt-credentials # Creates through ESO   
 # ---------------------------------------------------
 # Limits & Requests
 # ---------------------------------------------------
@@ -131,7 +131,7 @@ livenessProbe:
 autoscaling:
   enabled: false
   values:
-    name: backend-hpa
+    name: product-hpa
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilizationPercentage: 70
@@ -142,18 +142,18 @@ autoscaling:
 serviceAccount:
   create: false
   values:
-    name: backend-sa
+    name: product-sa
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/backend-role
+      eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/product-role
 # ---------------------------------------------------
 # Target Group Binding
 # ---------------------------------------------------
 targetGroupBinding:
   enabled: true
-  name: shopverse-dev-backend-tgb
+  name: ecommerce-dev-product-tgb
   values:
     targetType: "ip"
-    targetGroupName: shopverse-dev-backend-tg
+    targetGroupName: ecommerce-dev-product-tg
     # targetGroupARN: "REPLACE_WITH_TERRAFORM_OUTPUT"
 # ---------------------------------------------------
 # Node Selectors
