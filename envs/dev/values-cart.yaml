@@ -1,52 +1,51 @@
 # ===================================================
-#                    FRONTEND
+#                    CART
 # ===================================================
 
-# namespace: shopverse-dev
+# namespace: ecommerce-dev
 
 # ---------------------------------------------------
 # Container
 # ---------------------------------------------------
 image:
   ecr_registry: 254405569649.dkr.ecr.us-east-1.amazonaws.com
-  ecr_repository: shopverse-dev/frontend
+  ecr_repository: ecommerce-dev/cart
   tag: v1
-  digest: sha256:48597943abe32ee8aed190973b9930000a8db38aea413aa0fbbd0580abf83acc
-containerName: frontend
+  digest: latest                 # sha256:a5c6e8120a55cc2f541421a56847c9bfd1bcc485b711234f514c776f6ac8ff34
+containerName: cart
 imagePullPolicy: Always
 terminationGracePeriodSeconds: 30
 # ---------------------------------------------------
 # Labels
 # ---------------------------------------------------
 labels:
-  app.kubernetes.io/name: shopverse
-  app.kubernetes.io/component: frontend
+  app.kubernetes.io/name: ecommerce
+  app.kubernetes.io/component: cart
   app.kubernetes.io/env: dev
   app.kubernetes.io/version: 1.0.0
 # ---------------------------------------------------
 # Deployment
 # ---------------------------------------------------
 deployment:
-  name: frontend-deploy
+  name: cart-deploy
   replicas: 1
 # ---------------------------------------------------
 # Service
-# ---------------------------------------------------  
+# ---------------------------------------------------
 service:
-  name: frontend-svc
+  name: cart-svc
   type: ClusterIP
-  port: 8080
-  targetPort: 8080
+  port: 8002
+  targetPort: 8002
 # ---------------------------------------------------
 # Pod Annotations
 # ---------------------------------------------------
 annotations:
-  enabled: false
-  enable_checksum: false
+  enabled: true
+  enable_checksum: true
   checksum_file: configmap.yaml
-  values: {}
-  # checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-  # reloader.stakater.com/auto: "true"
+  values:
+    reloader.stakater.com/auto: "true"
 # ---------------------------------------------------
 # Security Context
 # ---------------------------------------------------
@@ -65,45 +64,28 @@ containerSecurityContext:
         - ALL
     readOnlyRootFilesystem: true
     runAsNonRoot: true
-    runAsUser: 101 # nginx user 101
-# ---------------------------------------------------
-# Volumes and Volume Mounts
-# ---------------------------------------------------
-volumes:
-  enabled: true
-  values:
-    - name: nginx-run
-      emptyDir: {}
-    - name: nginx-cache
-      emptyDir: {}
-volumeMounts:
-  enabled: true
-  values:
-    - name: nginx-run
-      mountPath: /run
-    - name: nginx-cache
-      mountPath: /var/cache/nginx
+    runAsUser: 1000
 # ---------------------------------------------------
 # Configmaps & Secrets
 # ---------------------------------------------------
 configmap:
-  enabled: false
-  name: frontend-configmap
+  enabled: true
+  name: cart-configmap
   values:
-    DB_HOST: ""
-    DB_PORT: "3306"
-    DB_NAME: "shopverse"
-    FRONTEND_ORIGIN: "*"
+    ENVIRONMENT: "dev"
+    AWS_REGION: "us-east-1"
+    DYNAMODB_ENDPOINT: "< DYNAMODB_ENDPOINT >"
+    CARTS_TABLE: "ecommerce-cart"
 secret:
-  name: db-credentials
-  create: false # Creates through ESO
+  name: ecommerce-dev-postgre-jwt-credentials
+  create: false # Creates through ESO    
 envFrom:
-  enabled: false
+  enabled: true
   values:
     - configMapRef:
-        name: frontend-configmap
-    - secretRef:
-        name: db-credentials # Creates through ESO   
+        name: cart-configmap
+    # - secretRef:
+    #     name: ecommerce-dev-postgre-jwt-credentials # Creates through ESO   
 # ---------------------------------------------------
 # Limits & Requests
 # ---------------------------------------------------
@@ -111,11 +93,11 @@ resources:
   enabled: true
   values:
     requests:
-      cpu: "50m"
-      memory: "64Mi"
-    limits:
       cpu: "100m"
       memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
 # ---------------------------------------------------
 # Healthcheck Probes
 # ---------------------------------------------------
@@ -124,7 +106,7 @@ startupProbe:
   values:
     httpGet:
       path: /health
-      port: 8080
+      port: 8002
     failureThreshold: 10
     periodSeconds: 10
 readinessProbe:
@@ -132,7 +114,7 @@ readinessProbe:
   values:
     httpGet:
       path: /health
-      port: 8080
+      port: 8002
     initialDelaySeconds: 15
     periodSeconds: 10
 livenessProbe:
@@ -140,7 +122,7 @@ livenessProbe:
   values:
     httpGet:
       path: /health
-      port: 8080
+      port: 8002
     initialDelaySeconds: 20
     periodSeconds: 30
 # ---------------------------------------------------
@@ -149,7 +131,7 @@ livenessProbe:
 autoscaling:
   enabled: false
   values:
-    name: frontend-hpa
+    name: cart-hpa
     minReplicas: 1
     maxReplicas: 3
     targetCPUUtilizationPercentage: 70
@@ -160,18 +142,18 @@ autoscaling:
 serviceAccount:
   create: false
   values:
-    name: frontend-sa
+    name: cart-sa
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/frontend-role
+      eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/cart-role
 # ---------------------------------------------------
 # Target Group Binding
 # ---------------------------------------------------
 targetGroupBinding:
   enabled: true
-  name: shopverse-dev-frontend-tgb
+  name: ecommerce-dev-cart-tgb
   values:
     targetType: "ip"
-    targetGroupName: shopverse-dev-frontend-tg
+    targetGroupName: ecommerce-dev-cart-tg
     # targetGroupARN: "REPLACE_WITH_TERRAFORM_OUTPUT"
 # ---------------------------------------------------
 # Node Selectors
