@@ -150,7 +150,7 @@ serviceAccount:
   values:
     name: order-sa
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::254405569649:role/ecommerce-dev-order-role
+      eks.amazonaws.com/role-arn: "arn:aws:iam::254405569649:role/ecommerce-dev-order-role"
 # ---------------------------------------------------
 # Target Group Binding
 # ---------------------------------------------------
