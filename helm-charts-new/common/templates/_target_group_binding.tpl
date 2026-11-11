@@ -4,12 +4,14 @@
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
-  name: {{ .Values.targetGroupBinding.name }}
+  name: {{ .Values.targetGroupBinding.values.name }}
   # namespace: shopverse-dev
+
   {{- with .Values.labels }}
   labels:
   {{- toYaml . | nindent 4 }}
   {{- end }}
+
 {{- if .Values.targetGroupBinding.values }}
 spec:
   targetType: {{ .Values.targetGroupBinding.values.targetType }}   # ip
