@@ -144,7 +144,7 @@ serviceAccount:
   values:
     name: cart-sa
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::254405569649:role/ecommerce-dev-cart-role
+      eks.amazonaws.com/role-arn: "arn:aws:iam::254405569649:role/ecommerce-dev-cart-role"
 # ---------------------------------------------------
 # Target Group Binding
 # ---------------------------------------------------
