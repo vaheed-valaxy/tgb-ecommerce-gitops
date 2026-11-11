@@ -1,8 +1,8 @@
-githubConfigUrl: "https://github.com/vaheed-valaxy/tgb-shopverse-frontend"
+githubConfigUrl: "https://github.com/vaheed-valaxy/tgb-shopverse-cart"
 
-githubConfigSecret: "shopverse-gha-arc-token"
+githubConfigSecret: "ecommerce-gha-arc-token"
 
-runnerScaleSetName: "shopverse-frontend-runners"
+runnerScaleSetName: "ecommerce-cart-runners"
 minRunners: 0
 maxRunners: 3
 
@@ -24,7 +24,7 @@ controllerServiceAccount:
 # Node Selector & Tolerations
 template:
   spec:
-    serviceAccountName: shopverse-gha-arc-runner-sa
+    serviceAccountName: ecommerce-gha-arc-runner-sa
     
     nodeSelector:
       workload: ci
