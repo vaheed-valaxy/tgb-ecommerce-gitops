@@ -10,8 +10,8 @@
 image:
   ecr_registry: 254405569649.dkr.ecr.us-east-1.amazonaws.com
   ecr_repository: ecommerce-dev/product
-  tag: v1
-  digest: latest                 # sha256:a5c6e8120a55cc2f541421a56847c9bfd1bcc485b711234f514c776f6ac8ff34
+  tag: latest
+  digest: sha256:a5c6e8120a55cc2f541421a56847c9bfd1bcc485b711234f514c776f6ac8ff34
 containerName: product
 imagePullPolicy: Always
 terminationGracePeriodSeconds: 30
