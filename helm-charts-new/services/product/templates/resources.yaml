@@ -9,7 +9,5 @@
 {{ include "common.hpa" . }}
 ---
 {{ include "common.targetGroupBinding" . }}
-
-
-
-
+---
+{{ include "common.serviceAccount" . }}
