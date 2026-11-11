@@ -11,10 +11,10 @@ metadata:
   {{- toYaml . | nindent 4 }}
   {{- end }}
 
-  {{- with .Values.serviceAccount.annotations }}
+  {{- with .Values.serviceAccount }}
   {{- if and .create .values }}
   annotations:
-  {{- toYaml . | nindent 4 }}
+  {{- toYaml .annotations | nindent 4 }}
   {{- end }}
   {{- end }}
 
