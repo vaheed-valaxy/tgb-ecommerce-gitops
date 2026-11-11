@@ -5,7 +5,7 @@
 */}}
 
 {{- define "shopverse.backend.image" -}}
-{{ printf "%s/%s@%s" .Values.image.ecr_registry .Values.image.ecr_repository .Values.image.tag }}
+{{ printf "%s/%s:%s" .Values.image.ecr_registry .Values.image.ecr_repository .Values.image.tag }}
 {{- end }}
 
 {{- define "shopverse.labels" }}
