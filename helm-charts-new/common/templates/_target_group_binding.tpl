@@ -16,9 +16,9 @@ metadata:
 spec:
   targetType: {{ .Values.targetGroupBinding.values.targetType }}   # ip
   serviceRef:
-    name: {{ .Values.service.name }}           # shopverse-frontend
-    port: {{ .Values.service.port }}           # 8080
-  targetGroupName: {{ .Values.targetGroupBinding.values.targetGroupName }}   # shopverse-dev-frontend-tg
+    name: {{ .Values.service.name }}           
+    port: {{ .Values.service.port }}           
+  targetGroupName: {{ .Values.targetGroupBinding.values.targetGroupName }}   # ecommerce-dev-product-tg
   # targetGroupARN: REPLACE_WITH_FRONTEND_TARGET_GROUP_ARN
 {{- end }}
 {{- end }}
