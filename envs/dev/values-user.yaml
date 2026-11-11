@@ -147,7 +147,7 @@ serviceAccount:
   values:
     name: user-sa
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::254405569649:role/ecommerce-dev-user-role
+      eks.amazonaws.com/role-arn: "arn:aws:iam::254405569649:role/ecommerce-dev-user-role"
 # ---------------------------------------------------
 # Target Group Binding
 # ---------------------------------------------------
