@@ -5,6 +5,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .Values.serviceAccount.values.name }}
+  # namespace: ecommerce-dev
 
   {{- with .Values.labels }}
   labels:
