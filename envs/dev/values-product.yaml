@@ -77,15 +77,15 @@ configmap:
     DYNAMODB_ENDPOINT: "< DYNAMODB_ENDPOINT >"
     PRODUCTS_TABLE: "ecommerce-products"
 secret:
-  name: shopverse-dev-mysql-jwt-credentials
+  name: ecommerce-dev-mysql-jwt-credentials
   create: false # Creates through ESO    
 envFrom:
   enabled: true
   values:
     - configMapRef:
         name: product-configmap
-    # - secretRef:
-    #     name: ecommerce-dev-postgre-jwt-credentials # Creates through ESO   
+    - secretRef:
+        name: ecommerce-dev-postgre-jwt-credentials # Creates through ESO   
 # ---------------------------------------------------
 # Limits & Requests
 # ---------------------------------------------------
