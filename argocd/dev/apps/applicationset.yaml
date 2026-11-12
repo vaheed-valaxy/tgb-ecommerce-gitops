@@ -52,7 +52,7 @@ spec:
         namespace: "{{project}}-{{env}}"
 
       # - DEV deployment is intentionally MANUAL.
-      # - Do NOT add spec.syncPolicy.automated.
+      # - Do NOT add "spec.syncPolicy.automated".
       # - Git changes will make the Application OutOfSync,
       # - But deployment happens only when GitHub Actions runs: "argocd app sync ecommerce-dev-backend"
         
