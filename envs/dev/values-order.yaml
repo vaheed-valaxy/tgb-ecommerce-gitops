@@ -82,6 +82,8 @@ configmap:
     PRODUCT_SERVICE_URL: "http://product-svc:8001"
     CART_SERVICE_URL: "http://cart-svc:8002"
     USER_SERVICE_URL: "http://user-svc:8003"
+    SNS_ENDPOINT: ""
+    SNS_TOPIC_ARN: ""
 secret:
   name: ecommerce-dev-postgre-jwt-credentials
   create: false # Creates through ESO    
