@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: shopverse-dev
+  name: ecommerce-dev
   namespace: argocd
 
 spec:
@@ -10,14 +10,14 @@ spec:
   # Allowed Git repositories
   # ============================================================
   sourceRepos:
-    - https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+    - https://github.com/vaheed-valaxy/tgb-ecommerce-gitops.git
 
   # ============================================================
   # Allowed destinations
   # ============================================================
   destinations:
     - server: https://kubernetes.default.svc
-      namespace: shopverse-dev
+      namespace: ecommerce-dev
 
   # ============================================================
   # Cluster-wide resources this AppProject can manage
@@ -26,11 +26,11 @@ spec:
     - group: ""
       kind: Namespace
 
-    - group: "rbac.authorization.k8s.io"
-      kind: Role
+    # - group: "rbac.authorization.k8s.io"
+    #   kind: Role
 
-    - group: "rbac.authorization.k8s.io"
-      kind: RoleBinding
+    # - group: "rbac.authorization.k8s.io"
+    #   kind: RoleBinding
 
   # ============================================================
   # Namespace-scoped resources this AppProject can manage
@@ -44,21 +44,21 @@ spec:
   # ============================================================
   roles:
 
-    - name: shopverse-gh-actions-dev
-      description: GitHub Actions role for syncing Shopverse DEV applications.
+    - name: ecommerce-gh-actions-dev
+      description: GitHub Actions role for syncing E-commerce DEV applications.
       
       policies:
 
         # Allow GitHub Actions to read the DEV applications
-        - p, proj:shopverse-dev:shopverse-gh-actions-dev, applications, get, shopverse-dev/*, allow 
+        - p, proj:ecommerce-dev:ecommerce-gh-actions-dev, applications, get, ecommerce-dev/*, allow 
 
         # Allow GitHub Actions to sync the DEV applications
-        - p, proj:shopverse-dev:shopverse-gh-actions-dev, applications, sync, shopverse-dev/*, allow
+        - p, proj:ecommerce-dev:ecommerce-gh-actions-dev, applications, sync, ecommerce-dev/*, allow
           
-
+        # -p, proj:<proj_name>:<role_name>, applications, sync, <proj_name>/*, allow
   # ============================================================
   # Description
   # ============================================================
   description: >
-    Single AppProject for dev environment of Shopverse application.
+    Single AppProject for dev environment of E-commerce application.
     Provides GitOps permissions and allows automated namespace creation.
