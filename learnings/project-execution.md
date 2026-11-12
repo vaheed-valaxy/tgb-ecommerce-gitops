@@ -15,7 +15,7 @@ terraform apply -target=module.alb
 terraform apply argocd
 terraform apply eso
 terraform apply aws-lbc
-terraform apply service-accounts
+terraform apply service-accounts (Product, Cart)
 ```
 ## 2. If u want ARC Runner for CI
 ```bash
