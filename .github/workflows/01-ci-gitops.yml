@@ -3,10 +3,10 @@ name: GitOps CI - Helm + Kubernetes Security
 on:
   workflow_dispatch:
     
-  push:
-    branches: main
-    paths:
-      - 'envs/dev/**'
+  # push:
+  #   branches: main
+  #   paths:
+  #     - 'envs/dev/**'
       
       # - 'charts/**'
       # - 'envs/**'
