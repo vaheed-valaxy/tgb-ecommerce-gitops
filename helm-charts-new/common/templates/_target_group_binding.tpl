@@ -5,7 +5,7 @@ apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
   name: {{ .Values.targetGroupBinding.values.name }}
-  # namespace: shopverse-dev
+  # namespace: ecommerce-dev
 
   {{- with .Values.labels }}
   labels:
