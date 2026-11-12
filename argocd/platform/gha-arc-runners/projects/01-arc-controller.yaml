@@ -1,11 +1,11 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: shopverse-arc-controller
+  name: ecommerce-arc-controller
   namespace: argocd
 
 spec:
-  description: Shopverse ARC controller.
+  description: Ecommerce ARC controller.
 
   sourceRepos:
     - ghcr.io/actions/actions-runner-controller-charts
