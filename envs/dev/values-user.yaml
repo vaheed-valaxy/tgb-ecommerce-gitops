@@ -153,8 +153,8 @@ serviceAccount:
 # ---------------------------------------------------
 targetGroupBinding:
   enabled: true
-  name: ecommerce-dev-user-tgb
   values:
+    name: ecommerce-dev-user-tgb
     targetType: "ip"
     targetGroupName: ecommerce-dev-user-tg
     # targetGroupARN: "REPLACE_WITH_TERRAFORM_OUTPUT"
