@@ -150,8 +150,8 @@ serviceAccount:
 # ---------------------------------------------------
 targetGroupBinding:
   enabled: true
-  name: ecommerce-dev-cart-tgb
   values:
+    name: ecommerce-dev-cart-tgb
     targetType: "ip"
     targetGroupName: ecommerce-dev-cart-tg
     # targetGroupARN: "REPLACE_WITH_TERRAFORM_OUTPUT"
