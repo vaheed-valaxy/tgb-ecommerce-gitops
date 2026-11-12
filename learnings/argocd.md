@@ -32,11 +32,11 @@ argocd account get-user-info
 
 ## Get ArgoCD Project
 ```bash
-argocd proj get shopverse-dev
-kubectl -n argocd get appproject shopverse-dev -o yaml
+argocd proj get ecommerce-dev
+kubectl -n argocd get appproject ecommerce-dev -o yaml
 
-argocd proj role list shopverse-dev
-argocd proj role get shopverse-dev shopverse-gh-actions-dev
+argocd proj role list ecommerce-dev
+argocd proj role get ecommerce-dev ecommerce-gh-actions-dev
 
 ```
 
@@ -45,8 +45,8 @@ argocd proj role get shopverse-dev shopverse-gh-actions-dev
 argocd proj role create-token <project-name> <role-name> --expires-in 30d
 
 argocd proj role create-token \
-  shopverse-dev \
-  shopverse-gh-actions-dev  \
+  ecommerce-dev \
+  ecommerce-gh-actions-dev  \
   --expires-in 30d
 ```
 
