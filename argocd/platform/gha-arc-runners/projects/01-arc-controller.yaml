@@ -9,7 +9,7 @@ spec:
 
   sourceRepos:
     - ghcr.io/actions/actions-runner-controller-charts
-    # - https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+    # - https://github.com/vaheed-valaxy/tgb-ecommerce-gitops.git
 
   destinations:
     - server: https://kubernetes.default.svc
