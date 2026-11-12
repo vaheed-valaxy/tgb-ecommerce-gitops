@@ -48,7 +48,7 @@ spec:
       
       {{- with .Values.serviceAccount }}
       {{- if and .create .values }}
-      serviceAccountName: {{ .values.name }}    # {{ .Values.serviceAccount.values.name }}
+      serviceAccountName: {{ .Values.serviceAccount.values.name }}
       {{- else }}
       serviceAccountName: default
       {{- end }}
