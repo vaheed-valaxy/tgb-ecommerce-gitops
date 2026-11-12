@@ -1,22 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: shopverse-gitops-arc-runners
+  name: ecommerce-gitops-arc-runners
   namespace: argocd
 spec:
-  project: shopverse-arc-runners   # default
+  project: ecommerce-arc-runners   # default
 
   sources:
     - repoURL: ghcr.io/actions/actions-runner-controller-charts
       chart: gha-runner-scale-set
       targetRevision: "0.15.0"
       helm:
-        releaseName: shopverse-gitops-arc-runners
+        releaseName: ecommerce-gitops-arc-runners
         skipCrds: false
         valueFiles:
           - $values/envs/platform/gha-arc-runners/values-arc-gitops.yaml
 
-    - repoURL: https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+    - repoURL: https://github.com/vaheed-valaxy/tgb-ecommerce-gitops.git
       targetRevision: main
       ref: values
 
