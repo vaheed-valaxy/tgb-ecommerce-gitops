@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: shopverse-dev-applicationset
+  name: ecommerce-dev-applicationset
   namespace: argocd
 spec:
   generators:
@@ -11,13 +11,13 @@ spec:
         generators:
           - list:
               elements: 
-                - project: shopverse
+                - project: ecommerce
                   env: dev
-                  repoURL: https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+                  repoURL: https://github.com/vaheed-valaxy/tgb-ecommerce-gitops.git
 
           # SERVICES (auto-discovered from ONE env only to avoid duplication)        
           - git:
-              repoURL: https://github.com/vaheed-valaxy/tgb-shopverse-gitops.git
+              repoURL: https://github.com/vaheed-valaxy/tgb-ecommerce-gitops.git
               revision: main
               directories:
                 - path: helm-charts-new/services/*
