@@ -74,7 +74,7 @@ configmap:
   values:
     ENVIRONMENT: "dev"
     AWS_REGION: "us-east-1"
-    DYNAMODB_ENDPOINT: "< DYNAMODB_ENDPOINT >"
+    DYNAMODB_ENDPOINT: "https://dynamodb.us-east-1.amazonaws.com"
     PRODUCTS_TABLE: "ecommerce-products"
 secret:
   name: ecommerce-dev-mysql-jwt-credentials
