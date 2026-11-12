@@ -140,7 +140,7 @@ autoscaling:
 # Service Account
 # ---------------------------------------------------
 serviceAccount:
-  create: false
+  create: true
   values:
     name: product-sa
     annotations:
