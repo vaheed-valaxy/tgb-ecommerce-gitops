@@ -90,7 +90,7 @@ cd argocd/dev/projects
 kubectl apply -f ecommerce-dev.yaml
 ```
 - **Create ApplicationSet**
-> ***Note:***Create a token for argocd project and create a secret DEV_ARGOCD_AUTH_TOKEN with that token in gitops Repo
+> ***Note***: Create a token for argocd project and create a secret DEV_ARGOCD_AUTH_TOKEN with that token in gitops Repo
 ```bash
 cd argocd/dev/apps
 kubectl apply -f applicationset.yaml
