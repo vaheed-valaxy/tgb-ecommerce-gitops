@@ -74,7 +74,7 @@ configmap:
   values:
     ENVIRONMENT: "dev"
     AWS_REGION: "us-east-1"
-    DB_HOST: ""
+    DB_HOST: "ecommerce-dev-postgre.ca9aykaigakf.us-east-1.rds.amazonaws.com"
     DB_PORT: "5432"
     DB_NAME: "ecommercedb"
     # DB_USER: ""
