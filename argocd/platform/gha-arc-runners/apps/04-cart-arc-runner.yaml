@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: ecommerce-backend-arc-runners
+  name: ecommerce-cart-arc-runners
   namespace: argocd
 spec:
   project: ecommerce-arc-runners   # default
@@ -11,10 +11,10 @@ spec:
       chart: gha-runner-scale-set
       targetRevision: "0.15.0"
       helm:
-        releaseName: ecommerce-backend-arc-runners
+        releaseName: ecommerce-cart-arc-runners
         skipCrds: false
         valueFiles:
-          - $values/envs/platform/gha-arc-runners/values-arc-backend.yaml
+          - $values/envs/platform/gha-arc-runners/values-arc-cart.yaml
 
     - repoURL: https://github.com/vaheed-valaxy/tgb-ecommerce-gitops.git
       targetRevision: main
