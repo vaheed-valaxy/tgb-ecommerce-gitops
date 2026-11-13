@@ -57,9 +57,9 @@ spec:
       # - But deployment happens only when GitHub Actions runs: "argocd app sync ecommerce-dev-backend"
         
       syncPolicy:
-        # automated:
-        #   prune: true
-        #   selfHeal: true
+        automated:
+          prune: true
+          selfHeal: true
         syncOptions:
           - CreateNamespace=true
           - ApplyOutOfSyncOnly=true
