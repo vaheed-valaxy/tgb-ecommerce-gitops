@@ -1,8 +1,8 @@
-githubConfigUrl: "https://github.com/vaheed-valaxy/tgb-shopverse-infra"
+githubConfigUrl: "https://github.com/vaheed-valaxy/tgb-ecommerce-infra"
 
-githubConfigSecret: "shopverse-gha-arc-token"
+githubConfigSecret: "ecommerce-gha-arc-token"
 
-runnerScaleSetName: "shopverse-infra-runners"
+runnerScaleSetName: "ecommerce-infra-runners"
 minRunners: 0
 maxRunners: 3
 
@@ -19,12 +19,12 @@ controllerServiceAccount:
 # resourceMeta:
 #   noPermissionServiceAccount:
 #     annotations:
-#       eks.amazonaws.com/role-arn: "arn:aws:iam::254405569649:role/shopverse-dev-gha-arc-runner-role"
+#       eks.amazonaws.com/role-arn: "arn:aws:iam::254405569649:role/ecommerce-dev-gha-arc-runner-role"
       
 # Node Selector & Tolerations
 template:
   spec:
-    serviceAccountName: shopverse-gha-arc-runner-sa
+    serviceAccountName: ecommerce-gha-arc-runner-sa
     
     # nodeSelector:
     #   workload: ci
@@ -53,4 +53,4 @@ template:
         #     cpu: 500m
         #     memory: 512Mi
 
-# 254405569649.dkr.ecr.us-east-1.amazonaws.com/shopverse-dev-arc-runner:v1
+# 254405569649.dkr.ecr.us-east-1.amazonaws.com/ecommerce-dev-arc-runner:v1
